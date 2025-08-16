@@ -168,6 +168,81 @@
             flex-grow: 1;
             line-height: 1.4;
         }
+
+        /* Heure */
+             :root{
+      --bg: #0b1020;
+      --fg: #e6ecff;
+      --muted: #9db0ff;
+      --accent: #7aa2ff;
+      --ring: 22, 130, 255; /* for shadows */
+    }
+    @media (prefers-color-scheme: light){
+      :root{ --bg:#f6f8ff; --fg:#0b1020; --muted:#4b5bb5; --accent:#365cff; --ring: 54, 92, 255; }
+    }
+
+    *{ box-sizing: border-box }
+    html, body{ height:5%; }
+    body{
+      margin:0;
+      display:grid;
+      place-items:center;
+                  radial-gradient(800px 600px at -10% 110%, rgba(var(--ring), .12), transparent 55%),
+                  var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--fg);
+    }
+
+    .clock{
+      border-radius: 24px;
+      background: rgba(255,255,255, .04);
+      box-shadow:
+        0 1px 0 rgba(255,255,255,.03) inset,
+        0 20px 60px rgba(0,0,0,.35),
+        0 0 0 1px rgba(255,255,255,.05);
+      backdrop-filter: blur(10px) saturate(1.2);
+    }
+
+    .head{
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      margin-bottom: 12px;
+    }
+    .title{ font-weight:700; letter-spacing:.2px; color: var(--muted); }
+
+    .toggle{
+      display:flex; align-items:center; gap:.5rem; font-weight:600; color: var(--muted);
+      user-select: none;
+    }
+    .toggle input{ appearance:none; width:46px; height:26px; border-radius:999px; position:relative; cursor:pointer; outline:none; background:#0f1833; box-shadow: inset 0 0 0 2px rgba(255,255,255,.06); transition: background .2s ease; }
+    .toggle input:checked{ background:#1a2a5f; }
+    .toggle input::after{ content:""; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:999px; background:white; box-shadow:0 2px 8px rgba(0,0,0,.4); transform: translateX(0); transition: transform .2s ease; }
+    .toggle input:checked::after{ transform: translateX(20px); }
+
+    .time{
+      display:flex; align-items:baseline; gap:18px; flex-wrap:wrap;
+      font-variant-numeric: tabular-nums; letter-spacing: .5px;
+    }
+    .digits{
+      font-size: clamp(42px, 10vw, 112px);
+      font-weight: 800;
+      line-height: 1;
+      text-shadow: 0 0 24px rgba(var(--ring), .25), 0 0 2px rgba(var(--ring), .5);
+    }
+    .ampm{ font-size: clamp(14px, 3vw, 20px); opacity:.8; }
+
+    .date{
+      margin-top: 6px;
+      font-size: clamp(14px, 3.2vw, 22px);
+      color: var(--muted);
+    }
+
+    .footer{ display:flex; align-items:center; justify-content:space-between; margin-top:16px; color: var(--muted); font-size: 14px; }
+
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+    /* Blinking colon effect, but subtle */
+    .colon { display:inline-block; width:.6ch; text-align:center; animation: blink 1s steps(1,end) infinite; }
+    @keyframes blink { 50% { opacity: .35; } }
     </style>
 <body>
     <!-- Page 1: Login -->
@@ -187,7 +262,7 @@
             <button onclick="login()">Login</button>
           
         <div class="contact">
-           <h4>whats up: +261341438308</h4>
+           <h4>whats up: +261347105558</h4>
        </div>
        
         <div class="info">
@@ -203,9 +278,31 @@
     <!-- Page 2: Outil de calcul -->
     <div class="page" id="page-main">
         
-        <div class="logo">
-            <img src="Aviator.jpg" alt="Logo" class="small-logo">
-        </div>
+         <main class="clock" role="group" aria-labelledby="title">
+    <div class="head">
+      <div id="title" class="title">Horloge en direct</div>
+      <label class="toggle" title="Basculer 24h / 12h">
+        <span>24 h</span>
+        <input id="formatSwitch" type="checkbox" aria-label="Basculer au format 12 heures" />
+        <span>12 h</span>
+      </label>
+    </div>
+
+    <div class="time" aria-live="polite" aria-atomic="true">
+      <div class="digits" id="digits">
+        <!-- HH:MM:SS injected by JS -->
+      </div>
+      <div class="ampm" id="ampm" aria-hidden="true"></div>
+      <span class="sr-only" id="srTime"></span>
+    </div>
+
+    <div class="date" id="date"></div>
+
+    <div class="footer">
+      <div>Fuseau local du navigateur</div>
+      <div id="tz"></div>
+    </div>
+  </main>
         
         <h1 class="prediction-title">Résultat de la Prédiction</h1>
 
@@ -285,7 +382,80 @@
     const pourcentage = Math.floor(Math.random() * (95 - 60 + 1)) + 60;
     document.getElementById('percentage-fill').style.width = pourcentage + '%';
         }
+
+            /* Heure */
+                    const digitsEl = document.getElementById('digits');
+    const ampmEl   = document.getElementById('ampm');
+    const dateEl   = document.getElementById('date');
+    const tzEl     = document.getElementById('tz');
+    const srEl     = document.getElementById('srTime');
+    const switchEl = document.getElementById('formatSwitch');
+
+    // Remember preference
+    const savedPref = localStorage.getItem('clock-12h');
+    if(savedPref === 'true') switchEl.checked = true;
+
+    function pad(n){ return String(n).padStart(2,'0'); }
+
+    function formatTime(now){
+      const use12h = switchEl.checked;
+      let h = now.getHours();
+      let suffix = '';
+      if(use12h){
+        suffix = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12; // 12-hour clock
+      }
+      const m = now.getMinutes();
+      const s = now.getSeconds();
+
+      // Build HH:MM:SS with blinking colons
+      const hh = pad(h);
+      const mm = pad(m);
+      const ss = pad(s);
+      const html = `${hh}<span class="colon">:</span>${mm}<span class="colon">:</span>${ss}`;
+      return { html, suffix };
+    }
+
+    function formatDate(now){
+      // e.g., jeudi 14 août 2025
+      return new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
+      }).format(now);
+    }
+
+    function update(){
+      const now = new Date();
+      const { html, suffix } = formatTime(now);
+      digitsEl.innerHTML = html;
+      ampmEl.textContent = switchEl.checked ? `\u00A0${suffix}` : '';
+      dateEl.textContent = formatDate(now);
+      srEl.textContent = `Il est ${now.toLocaleTimeString('fr-FR')} le ${now.toLocaleDateString('fr-FR')}`;
+    }
+
+    function tickAligned(){
+      // Align updates to the next exact second for crispness
+      update();
+      const now = new Date();
+      const delay = 1000 - now.getMilliseconds();
+      setTimeout(tickAligned, delay);
+    }
+
+    // Time zone label
+    try{
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      tzEl.textContent = tz.replace('_',' ');
+    }catch{ tzEl.textContent = ''; }
+
+    // Save preference when toggled
+    switchEl.addEventListener('change', ()=>{
+      localStorage.setItem('clock-12h', switchEl.checked ? 'true' : 'false');
+      update();
+    });
+
+    // Start
+    tickAligned();
         </script>
     </body>
 
 </html>
+
