@@ -364,7 +364,7 @@
         }
 
     let results = [];
-    let start = (tour + 5) % 100;
+    let start = (tour + 2 * 6 * 1) % 100;
 
     for (let i = 0; i < 3; i++) {
     results.push((start + i) % 100);
@@ -379,7 +379,7 @@
 
     document.getElementById('result').innerHTML = html;
 
-    const pourcentage = Math.floor(Math.random() * (95 - 60 + 1)) + 60;
+    const pourcentage = Math.floor(Math.random() * (75 - 60 + 1)) + 60;
     document.getElementById('percentage-fill').style.width = pourcentage + '%';
         }
 
@@ -458,5 +458,6 @@
     </body>
 
 </html>
+
 
 
